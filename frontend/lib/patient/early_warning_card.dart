@@ -191,7 +191,7 @@ class _EarlyWarningCardState extends State<EarlyWarningCard>
       case 'partialDayAdherence':
         return '💡 Set a dedicated alarm on your phone for your evening doses — separate from other notifications.';
       case 'weekendCliff':
-        return '💡 Your weekend routine differs from weekdays. Try preparing your medications on Friday night.';
+        return '💡 Your weekend routine differs from weekdays. Try preparing your medications on Thursday night.';
       case 'postIllnessRecovery':
         return '💡 When recovering, start with your most important medications first and build back your routine gradually.';
       case 'specificMedDrift':

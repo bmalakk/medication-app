@@ -180,6 +180,22 @@ class AccessibilityService extends ChangeNotifier {
     if (lang != null && lang != _ttsLanguage) await _tts.setLanguage(_ttsLanguage);
   }
 
+  /// Like [speak] but waits for TTS to fully finish before returning.
+  /// Use this before starting the microphone to avoid audio-session conflicts
+  /// where TTS audio is still playing when speech recognition starts.
+  Future<void> speakAndWait(String text, {String? lang}) async {
+    if (!ttsEnabled) return;
+    if (!_ttsReady) await _initTts();
+    final cleaned = _cleanForTts(text);
+    if (cleaned.isEmpty) return;
+    if (lang != null && lang != _ttsLanguage) await _tts.setLanguage(lang);
+    await _tts.stop();
+    await _tts.awaitSpeakCompletion(true);
+    await _tts.speak(cleaned);
+    await _tts.awaitSpeakCompletion(false);
+    if (lang != null && lang != _ttsLanguage) await _tts.setLanguage(_ttsLanguage);
+  }
+
   Future<void> stop() async => _tts.stop();
 
   // ── CONFIRMATION SOUND ─────────────────────────────────────────────────────

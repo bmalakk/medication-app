@@ -96,7 +96,11 @@ class _SignUpPageState extends State<SignUpPage>
 
   Future<void> _scanChifaCard() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+      maxWidth: 1600,
+    );
     if (pickedFile == null) return;
     if (!mounted) return;
 

@@ -28,6 +28,7 @@ class VoiceConfirmService {
   final SpeechToText _speech = SpeechToText();
   bool _initialized = false;
   bool _isListening = false;
+  ValueChanged<bool>? _onListeningChanged;
 
   bool get isListening  => _isListening;
   bool get isAvailable  => _initialized;
@@ -44,8 +45,24 @@ class VoiceConfirmService {
   Future<bool> initialize() async {
     if (_initialized) return true;
     _initialized = await _speech.initialize(
-      onError: (e) => debugPrint('[Voice] Error: ${e.errorMsg}'),
-      onStatus: (s) => debugPrint('[Voice] Status: $s'),
+      onError: (e) {
+        debugPrint('[Voice] Error: ${e.errorMsg}');
+        // If recognition errors out (e.g. no match, timeout, network) the
+        // native side stops listening on its own — without this, the UI is
+        // left stuck showing "Listening..." with no feedback until the
+        // 8-second fallback timer fires.
+        if (_isListening) {
+          _isListening = false;
+          _onListeningChanged?.call(false);
+        }
+      },
+      onStatus: (s) {
+        debugPrint('[Voice] Status: $s');
+        if ((s == 'notListening' || s == 'done') && _isListening) {
+          _isListening = false;
+          _onListeningChanged?.call(false);
+        }
+      },
     );
     return _initialized;
   }
@@ -66,31 +83,43 @@ class VoiceConfirmService {
       return;
     }
 
+    _onListeningChanged = onListeningChanged;
     _isListening = true;
     onListeningChanged(true);
 
-    await _speech.listen(
-      listenFor: const Duration(seconds: 8),
-      pauseFor:  const Duration(seconds: 3),
-      localeId:  'en_US',
-      partialResults: true,
-      onResult: (result) {
-        final text = result.recognizedWords.toLowerCase().trim();
-        debugPrint('[Voice] Heard: "$text"');
+    try {
+      await _speech.listen(
+        listenFor: const Duration(seconds: 8),
+        pauseFor:  const Duration(seconds: 3),
+        // No localeId: forcing 'en_US' meant the recognizer would listen but
+        // never return a result on devices where that language pack isn't
+        // installed. Omitting it lets speech_to_text use the device's own
+        // default locale, which is guaranteed to be supported.
+        partialResults: true,
+        onResult: (result) {
+          final text = result.recognizedWords.toLowerCase().trim();
+          debugPrint('[Voice] Heard: "$text"');
 
-        onPartialResult?.call(text);
+          onPartialResult?.call(text);
 
-        // Check for any confirmation keyword
-        final confirmed = _keywords.any((kw) => text.contains(kw));
-        if (confirmed) {
-          debugPrint('[Voice] Keyword detected — confirming');
-          stop();
-          onListeningChanged(false);
-          onConfirmed();
-        }
-      },
-      listenMode: ListenMode.confirmation,
-    );
+          // Check for any confirmation keyword
+          final confirmed = _keywords.any((kw) => text.contains(kw));
+          if (confirmed) {
+            debugPrint('[Voice] Keyword detected — confirming');
+            _isListening = false;
+            stop();
+            onListeningChanged(false);
+            onConfirmed();
+          }
+        },
+        listenMode: ListenMode.confirmation,
+      );
+    } catch (e) {
+      debugPrint('[Voice] listen() failed: $e');
+      _isListening = false;
+      onListeningChanged(false);
+      return;
+    }
 
     // Auto-stop after listen duration
     Future.delayed(const Duration(seconds: 8), () {
@@ -108,6 +137,7 @@ class VoiceConfirmService {
   }
 
   void dispose() {
+    _onListeningChanged = null;
     _speech.cancel();
   }
 }

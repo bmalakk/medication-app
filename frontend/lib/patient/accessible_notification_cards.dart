@@ -188,9 +188,11 @@ class _IlliteracyNotificationCardState
       return;
     }
     // Wait for TTS to fully finish before starting the mic — otherwise the
-    // TTS audio ("Say: I took it") is picked up by the recognizer and triggers
+    // TTS audio ("Say: taken") is picked up by the recognizer and triggers
     // a false keyword match, or the audio session conflict prevents recognition.
-    await _a11y.speakAndWait('Say: I took it');
+    // "taken" (rather than "I took it") is a single short word, which the
+    // recognizer picks up far more reliably than a full sentence.
+    await _a11y.speakAndWait('Say: taken');
     if (!mounted) return;
     await _voice.startListening(
       onConfirmed: () {
@@ -721,9 +723,11 @@ class _VisualImpairmentNotificationCardState
       return;
     }
     // Wait for TTS to fully finish before starting the mic — otherwise the
-    // TTS audio ("Say: I took it") is picked up by the recognizer and triggers
+    // TTS audio ("Say: taken") is picked up by the recognizer and triggers
     // a false keyword match, or the audio session conflict prevents recognition.
-    await _a11y.speakAndWait('Say: I took it');
+    // "taken" (rather than "I took it") is a single short word, which the
+    // recognizer picks up far more reliably than a full sentence.
+    await _a11y.speakAndWait('Say: taken');
     if (!mounted) return;
     await _voice.startListening(
       onConfirmed: () {

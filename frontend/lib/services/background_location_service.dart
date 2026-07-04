@@ -63,8 +63,10 @@ void onStart(ServiceInstance service) async {
 Future<void> _sendLocationUpdate() async {
   try {
     final prefs     = await SharedPreferences.getInstance();
-      final token     = prefs.getString('auth_token');
-final patientId = prefs.getInt('user_id');
+    // Uses its own credential keys (set in startTracking), kept separate from
+    // the login session so tracking survives logout.
+    final token     = prefs.getString('bg_auth_token');
+    final patientId = prefs.getInt('bg_patient_id');
 
 
     if (token == null || patientId == null) return;
@@ -109,6 +111,8 @@ class BackgroundLocationService {
   BackgroundLocationService._internal();
 
   static const String _prefTrackingKey = 'background_tracking_active';
+  static const String _bgTokenKey      = 'bg_auth_token';
+  static const String _bgPatientIdKey  = 'bg_patient_id';
 
   // ── initialize ─────────────────────────────────────────────────────────────
   /// Call once in main() before runApp()
@@ -181,7 +185,7 @@ class BackgroundLocationService {
   }
 
   // ── start ──────────────────────────────────────────────────────────────────
-  Future<bool> startTracking(int patientId) async {
+  Future<bool> startTracking(int patientId, String token) async {
     try {
       final hasPerms = await requestPermissions();
       if (!hasPerms) return false;
@@ -189,6 +193,10 @@ class BackgroundLocationService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_prefTrackingKey, true);
       await prefs.setInt('user_id', patientId);
+      // Own copy of the credentials, independent of the login session, so
+      // tracking keeps working after the user logs out.
+      await prefs.setInt(_bgPatientIdKey, patientId);
+      await prefs.setString(_bgTokenKey, token);
 
       final service = FlutterBackgroundService();
       final isRunning = await service.isRunning();
@@ -208,6 +216,8 @@ class BackgroundLocationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_prefTrackingKey, false);
+      await prefs.remove(_bgTokenKey);
+      await prefs.remove(_bgPatientIdKey);
 
       final service = FlutterBackgroundService();
       service.invoke('stopService');
@@ -223,7 +233,7 @@ class BackgroundLocationService {
     try {
       final prefs     = await SharedPreferences.getInstance();
       final wasActive = prefs.getBool(_prefTrackingKey) ?? false;
-      final patientId = prefs.getInt('user_id');
+      final patientId = prefs.getInt(_bgPatientIdKey);
 
       if (wasActive && patientId != null) {
         final service   = FlutterBackgroundService();

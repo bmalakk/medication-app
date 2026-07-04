@@ -351,13 +351,14 @@ class _PatientInterfaceState extends State<PatientInterface> {
     if (kIsWeb) return;
     final prefs    = await SharedPreferences.getInstance();
     int? patientId = prefs.getInt('user_id') ?? (_userData?['id'] as int?);
-    if (patientId == null || _userData == null) return;
+    final token    = prefs.getString('auth_token');
+    if (patientId == null || _userData == null || token == null) return;
     final agreed   = prefs.getBool('background_tracking_agreed') ?? false;
     if (!agreed && !_hasAskedBackgroundPermission) {
       _hasAskedBackgroundPermission = true;
       final ok = await _askForBackgroundTrackingPermission();
       if (ok) {
-        final started = await _backgroundLocationService.startTracking(patientId);
+        final started = await _backgroundLocationService.startTracking(patientId, token);
         if (mounted) setState(() => _backgroundTrackingEnabled = started);
         await prefs.setBool('background_tracking_agreed', true);
       }
@@ -436,9 +437,13 @@ class _PatientInterfaceState extends State<PatientInterface> {
       final prefs     = await SharedPreferences.getInstance();
       final token     = prefs.getString('auth_token');
 
-      // Save location credentials before clearing
-      final userId    = prefs.getInt('user_id');
-      final isTracking = await BackgroundLocationService().isTracking();
+      // Background tracking uses its own dedicated credential keys (separate
+      // from the login session) so it can keep running after logout — preserve
+      // them across the prefs wipe below.
+      final bgTracking  = prefs.getBool('background_tracking_active') ?? false;
+      final bgToken     = prefs.getString('bg_auth_token');
+      final bgPatientId = prefs.getInt('bg_patient_id');
+
       if (token != null) {
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
@@ -446,10 +451,10 @@ class _PatientInterfaceState extends State<PatientInterface> {
         ).timeout(const Duration(seconds: 10));
       }
       await prefs.clear();
-      // Restore location credentials so background keeps running
-      if (isTracking && userId != null && token != null) {
-        await prefs.setString('auth_token', token);
-        await prefs.setInt('user_id', userId);
+      if (bgTracking && bgToken != null && bgPatientId != null) {
+        await prefs.setBool('background_tracking_active', true);
+        await prefs.setString('bg_auth_token', bgToken);
+        await prefs.setInt('bg_patient_id', bgPatientId);
       }
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/signin');

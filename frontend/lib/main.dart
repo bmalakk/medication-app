@@ -45,9 +45,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
    await AccessibilityService.instance.load();
 
-  // Initialize background location service BEFORE running app
+  // Initialize background location service BEFORE running app.
+  // Tracking is independent of the login session, so restore it here
+  // regardless of whether the user ends up on the sign-in screen.
   if (!kIsWeb) {
     await BackgroundLocationService().initialize();
+    await BackgroundLocationService().restoreTrackingIfNeeded();
   }
 
   if (kIsWeb) {

@@ -437,9 +437,10 @@ const SizedBox(height: 20),
 Future<void> _toggleBackgroundTracking(bool value) async {
   final prefs     = await SharedPreferences.getInstance();
   final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
-  if (value && patientId != null) {
+  final token     = prefs.getString('auth_token');
+  if (value && patientId != null && token != null) {
     await prefs.setBool('location_sharing_opted_out', false);
-    final started = await BackgroundLocationService().startTracking(patientId);
+    final started = await BackgroundLocationService().startTracking(patientId, token);
     if (mounted) {
       setState(() => _backgroundTracking = started);
       _snack(started ? '✅ 24/7 location sharing enabled' : '❌ Failed to enable', 
